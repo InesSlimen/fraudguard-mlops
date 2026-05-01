@@ -1,0 +1,58 @@
+name: 01-ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    name: Lint and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          pip install -e .
+
+      - name: Prepare reports directory
+        run: |
+          mkdir -p reports/tests
+
+      - name: Run lint
+        run: |
+          ruff check .
+
+      - name: Run tests
+        run: |
+          pytest -q --junitxml=reports/tests/junit.xml
+
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: reports/tests
+
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## FraudGuard CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Lint completed" >> $GITHUB_STEP_SUMMARY
+          echo "- Tests completed" >> $GITHUB_STEP_SUMMARY
+          echo "- Test report uploaded as artifact" >> $GITHUB_STEP_SUMMARY
