@@ -1,8 +1,8 @@
 .PHONY: install test lint format clean tree
 
 install:
-	python -m venv .venv
-	. .venv/bin/activate && python -m pip install -U pip
+	python3.11 -m venv .venv
+	. .venv/bin/activate && python3.11 -m pip install -U pip
 	. .venv/bin/activate && pip install -e .
 
 test:
@@ -23,3 +23,12 @@ tree:
 	find . -maxdepth 4 -type d | sort
 
 .PHONY: data-synthetic data-sample data-check
+
+data-synthetic:
+	. .venv/bin/activate && PYTHONPATH=. python3.11 scripts/create_synthetic_sample.py
+
+data-sample:
+	. .venv/bin/activate && PYTHONPATH=. python3.11 scripts/create_sample.py
+
+data-check:
+	. .venv/bin/activate && PYTHONPATH=. python3.11 scripts/check_data.py

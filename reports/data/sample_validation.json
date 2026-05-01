@@ -1,0 +1,26 @@
+{
+  "path": "data/samples/fraud_sample.parquet",
+  "rows": 5000,
+  "columns": 16,
+  "fraud_rate": 0.035,
+  "missing_columns": [],
+  "required_columns": [
+    "TransactionID",
+    "TransactionAmt",
+    "ProductCD",
+    "card1",
+    "card2",
+    "card3",
+    "card4",
+    "card5",
+    "card6",
+    "addr1",
+    "addr2",
+    "P_emaildomain",
+    "R_emaildomain",
+    "DeviceType",
+    "DeviceInfo",
+    "isFraud"
+  ],
+  "status": "passed"
+}
