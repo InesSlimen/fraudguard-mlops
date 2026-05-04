@@ -56,7 +56,11 @@ jobs:
           echo "- Lint completed" >> $GITHUB_STEP_SUMMARY
           echo "- Tests completed" >> $GITHUB_STEP_SUMMARY
           echo "- Test report uploaded as artifact" >> $GITHUB_STEP_SUMMARY
+  validate-synthetic-data:
+    name: Validate synthetic data
+    runs-on: ubuntu-latest
 
+    steps:        
       - name: Generate synthetic data sample
         env:
           PYTHONPATH: .
