@@ -56,17 +56,31 @@ jobs:
           echo "- Lint completed" >> $GITHUB_STEP_SUMMARY
           echo "- Tests completed" >> $GITHUB_STEP_SUMMARY
           echo "- Test report uploaded as artifact" >> $GITHUB_STEP_SUMMARY
-  validate-synthetic-data:
-    name: Validate synthetic data
-    runs-on: ubuntu-latest
+  alidate-synthetic-data:
     needs: lint-and-test
+    name: Validate synthetic data sample
+    runs-on: ubuntu-latest
+        
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    steps:        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          pip install -e .
+      
       - name: Generate synthetic data sample
         env:
           PYTHONPATH: .
         run: |
-          python $GITHUB_WORKSPACE/scripts/create_synthetic_sample.py
+          python scripts/create_synthetic_sample.py
 
       - name: Validate data sample
         env:
@@ -80,4 +94,16 @@ jobs:
         with:
           name: data-validation-report
           path: reports/data
+      
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## FraudGuard CI Validation" >> $GITHUB_STEP_SUMMARY
+          if [ -f reports/data/sample_validation.json ]; then
+            echo "### Metrics" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat reports/data/sample_validation.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- Data validation report uploaded as artifact" >> $GITHUB_STEP_SUMMARY
 
