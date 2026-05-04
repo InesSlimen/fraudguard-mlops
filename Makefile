@@ -32,3 +32,8 @@ data-sample:
 
 data-check:
 	. .venv/bin/activate && PYTHONPATH=. python3.11 scripts/check_data.py
+
+.PHONY: data-validate
+
+data-validate:
+	. .venv/bin/activate && PYTHONPATH=. python3.11 scripts/validate_data.py
