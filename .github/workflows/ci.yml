@@ -105,5 +105,6 @@ jobs:
             cat reports/data/sample_validation.json >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
-          echo "- Data validation report uploaded as artifact" >> $GITHUB_STEP_SUMMARY
-
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Data validation completed" >> $GITHUB_STEP_SUMMARY
+          echo "- Validation report uploaded as artifact" >> $GITHUB_STEP_SUMMARY
