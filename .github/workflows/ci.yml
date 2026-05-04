@@ -65,13 +65,13 @@ jobs:
         env:
           PYTHONPATH: .
         run: |
-          python scripts/create_synthetic_sample.py
+          python ./scripts/create_synthetic_sample.py
 
       - name: Validate data sample
         env:
           PYTHONPATH: .
         run: |
-          python scripts/check_data.py
+          python ./scripts/check_data.py
 
       - name: Upload data validation report
         uses: actions/upload-artifact@v4
