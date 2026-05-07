@@ -1,0 +1,91 @@
+name: 03-model
+
+on:
+  pull_request:
+    paths:
+      - "products/fraudguard/training/**"
+      - "products/fraudguard/features/**"
+      - "products/fraudguard/evaluation/**"
+      - "contracts/**"
+      - "scripts/**"
+      - "ci/quality-gates/**"
+      - ".github/workflows/03-model.yml"
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  model:
+    name: Train and validate model
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          pip install -e .
+
+      - name: Generate synthetic data
+        env:
+          PYTHONPATH: .
+        run: |
+          python scripts/create_synthetic_sample.py
+
+      - name: Validate data
+        env:
+          PYTHONPATH: .
+        run: |
+          python scripts/validate_data.py
+
+      - name: Build features
+        env:
+          PYTHONPATH: .
+        run: |
+          python products/fraudguard/features/build_features.py
+
+      - name: Train model
+        env:
+          PYTHONPATH: .
+        run: |
+          python products/fraudguard/training/train.py
+
+      - name: Run model quality gate
+        env:
+          PYTHONPATH: .
+        run: |
+          python ci/quality-gates/check_metrics.py reports/model/metrics.json
+
+      - name: Upload model reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: model-reports
+          path: |
+            reports/model
+            artifacts/metrics.json
+
+      - name: Write model summary
+        if: always()
+        run: |
+          echo "## FraudGuard Model Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f reports/model/metrics.json ]; then
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat reports/model/metrics.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No metrics report found." >> $GITHUB_STEP_SUMMARY
+          fi

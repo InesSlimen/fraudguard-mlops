@@ -1,7 +1,7 @@
 {
   "path": "data/samples/fraud_sample.parquet",
-  "rows": 5000,
-  "fraud_rate": 0.035,
+  "rows": 50000,
+  "fraud_rate": 0.03586,
   "status": "passed",
   "errors": null
 }
