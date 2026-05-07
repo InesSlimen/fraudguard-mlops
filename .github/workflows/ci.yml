@@ -7,7 +7,7 @@ on:
       - main
 
 permissions:
-  contents: rea
+  contents: read
 
 jobs:
   lint-and-test:
