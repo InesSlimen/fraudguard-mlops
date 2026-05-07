@@ -37,3 +37,11 @@ data-check:
 
 data-validate:
 	. .venv/bin/activate && PYTHONPATH=. python3.11 scripts/validate_data.py
+
+.PHONY: features-build features-check
+
+features-build:
+	. .venv/bin/activate && PYTHONPATH=. python products/fraudguard/features/build_features.py
+
+features-check:
+	. .venv/bin/activate && PYTHONPATH=. python -c "from products.fraudguard.features.build_features import write_feature_report; write_feature_report()"
