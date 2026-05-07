@@ -1,7 +1,6 @@
 import json
 
 from ci.quality_gates_import import import_check_metrics
-
 from products.fraudguard.training.train import train_model
 from scripts.create_synthetic_sample import create_synthetic_sample
 
