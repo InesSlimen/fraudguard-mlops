@@ -1,0 +1,93 @@
+name: api
+
+on:
+  pull_request:
+    paths:
+      - "products/fraudguard/inference/**"
+      - "products/fraudguard/features/**"
+      - "products/fraudguard/training/**"
+      - "scripts/**"
+      - ".github/workflows/api.yml"
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  api-smoke:
+    name: API smoke test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          pip install -e .
+
+      - name: Generate synthetic data
+        env:
+          PYTHONPATH: .
+        run: |
+          python scripts/create_synthetic_sample.py
+
+      - name: Validate data
+        env:
+          PYTHONPATH: .
+        run: |
+          python scripts/validate_data.py
+
+      - name: Build features
+        env:
+          PYTHONPATH: .
+        run: |
+          python products/fraudguard/features/build_features.py
+
+      - name: Train model
+        env:
+          PYTHONPATH: .
+        run: |
+          python products/fraudguard/training/train.py
+
+      - name: Start API
+        env:
+          PYTHONPATH: .
+        run: |
+          uvicorn products.fraudguard.inference.app.main:app --host 0.0.0.0 --port 8000 > api.log 2>&1 &
+          sleep 8
+
+      - name: Run smoke test
+        run: |
+          mkdir -p reports/api
+          bash scripts/smoke_test.sh | tee reports/api/smoke_test.txt
+
+      - name: Upload API reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-reports
+          path: |
+            reports/api
+            api.log
+
+      - name: API summary
+        if: always()
+        run: |
+          echo "## FraudGuard API Smoke Test" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f reports/api/smoke_test.txt ]; then
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat reports/api/smoke_test.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
