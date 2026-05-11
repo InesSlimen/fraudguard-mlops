@@ -53,3 +53,11 @@ train:
 
 model-check:
 	. .venv/bin/activate && PYTHONPATH=. python3.11 ci/quality-gates/check_metrics.py reports/model/metrics.json
+
+.PHONY: serve smoke
+
+serve:
+	. .venv/bin/activate && PYTHONPATH=. uvicorn products.fraudguard.inference.app.main:app --host 0.0.0.0 --port 8000 --reload
+
+smoke:
+	bash scripts/smoke_test.sh
