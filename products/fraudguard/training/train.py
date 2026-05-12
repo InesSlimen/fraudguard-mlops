@@ -113,27 +113,12 @@ def train_model(data_path: Path = DATA_PATH) -> dict:
     )
 
     # Save the best model (based on ROC-AUC)
-    best_model = (
-        lgbm_pipeline
-        if lgbm_metrics["roc_auc"] >= rf_metrics["roc_auc"]
-        else rf_pipeline
-    )
-    best_metrics = (
-        lgbm_metrics
-        if lgbm_metrics["roc_auc"] >= rf_metrics["roc_auc"]
-        else rf_metrics
-    )
+    best_model = lgbm_pipeline if lgbm_metrics["roc_auc"] >= rf_metrics["roc_auc"] else rf_pipeline
+    best_metrics = lgbm_metrics if lgbm_metrics["roc_auc"] >= rf_metrics["roc_auc"] else rf_metrics
 
     joblib.dump(best_model, MODEL_PATH)
     METRICS_PATH.write_text(json.dumps(best_metrics, indent=2))
     REPORT_METRICS_PATH.write_text(json.dumps(best_metrics, indent=2))
-
-    # Prepare comparison results
-    comparison_results = {
-        "lgbm": lgbm_metrics,
-        "random_forest": rf_metrics,
-        "best_model": best_metrics["model_type"],
-    }
 
     if MLFLOW_TRACKING_URI:
         mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -184,13 +169,20 @@ def train_model(data_path: Path = DATA_PATH) -> dict:
         METRICS_PATH.write_text(json.dumps(best_metrics, indent=2))
         REPORT_METRICS_PATH.write_text(json.dumps(best_metrics, indent=2))
 
-    return comparison_results
+    # Add comparison info to best_metrics for reference
+    best_metrics["model_comparison"] = {
+        "lgbm_roc_auc": lgbm_metrics["roc_auc"],
+        "random_forest_roc_auc": rf_metrics["roc_auc"],
+        "best_model": best_metrics["model_type"],
+    }
+
+    return best_metrics
 
 
 def main() -> None:
-    results = train_model()
-    print("\n=== Model Comparison Results ===")
-    print(json.dumps(results, indent=2))
+    metrics = train_model()
+    print("\n=== Training Results ===")
+    print(json.dumps(metrics, indent=2))
 
 
 if __name__ == "__main__":

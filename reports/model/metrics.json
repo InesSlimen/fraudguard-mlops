@@ -8,6 +8,6 @@
   "model_type": "LightGBM",
   "train_rows": 40000,
   "test_rows": 10000,
-  "positive_rate": 0.03586,
-  "mlflow_run_id": "43c375a5d9ec44bfba7f65b734023cc9"
+  "positive_rate": 0.0359,
+  "mlflow_run_id": "b38c8d6b29c7447faa3139b927ddf1b3"
 }
