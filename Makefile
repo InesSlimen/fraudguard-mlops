@@ -61,3 +61,29 @@ serve:
 
 smoke:
 	bash scripts/smoke_test.sh
+
+.PHONY: platform-up platform-down mlflow-ui mlflow-smoke
+
+platform-up:
+	docker compose -f docker-compose.local.yml up -d
+
+platform-down:
+	docker compose -f docker-compose.local.yml down
+
+mlflow-ui:
+	@echo "MLflow UI: http://localhost:5001"
+	@echo "MinIO UI:   http://localhost:9001"
+
+mlflow-smoke:
+	. .venv/bin/activate && PYTHONPATH=. MLFLOW_TRACKING_URI=http://localhost:5001 python3.11 scripts/mlflow_smoke.py
+
+PHONY: train-tracking
+
+train-tracking:
+	. .venv/bin/activate && \
+	PYTHONPATH=. \
+	MLFLOW_TRACKING_URI=$${MLFLOW_TRACKING_URI:-http://localhost:5001} \
+	MLFLOW_S3_ENDPOINT_URL=$${MLFLOW_S3_ENDPOINT_URL:-http://localhost:9000} \
+	AWS_ACCESS_KEY_ID=$${AWS_ACCESS_KEY_ID:-minio} \
+	AWS_SECRET_ACCESS_KEY=$${AWS_SECRET_ACCESS_KEY:-minio123} \
+	python3.11 products/fraudguard/training/train.py
