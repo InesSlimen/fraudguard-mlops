@@ -3,11 +3,13 @@ import os
 from pathlib import Path
 
 import joblib
+import matplotlib.pyplot as plt
 import mlflow
 import mlflow.sklearn
 import pandas as pd
 from lightgbm import LGBMClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import roc_curve
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
@@ -29,16 +31,19 @@ MLFLOW_EXPERIMENT_NAME = os.getenv("MLFLOW_EXPERIMENT_NAME", "fraudguard-baselin
 
 
 def train_and_evaluate_model(
-    X_train, X_test, y_train, y_test, model, model_type: str, model_params: dict
-) -> dict:
-    """Train and evaluate a single model."""
+    X_train,
+    X_test,
+    y_train,
+    y_test,
+    model,
+    model_type: str,
+) -> tuple[Pipeline, dict, pd.Series]:
     pipeline = Pipeline(
         steps=[
             ("preprocessor", build_preprocessor()),
             ("model", model),
         ]
     )
-
     pipeline.fit(X_train, y_train)
     y_scores = pipeline.predict_proba(X_test)[:, 1]
     threshold = find_threshold_for_recall(y_test, y_scores, min_recall=0.70)
@@ -48,18 +53,38 @@ def train_and_evaluate_model(
         y_scores=y_scores,
         threshold=threshold,
     )
-
     metrics.update(
         {
             "model_type": model_type,
             "train_rows": int(len(X_train)),
             "test_rows": int(len(X_test)),
-            "positive_rate": float(pd.Series(y_test).mean()),
             "threshold": float(threshold),
         }
     )
 
-    return pipeline, metrics, model_params
+    return pipeline, metrics, y_scores
+
+
+def plot_roc_curves(results: list[dict], output_path: Path) -> None:
+    plt.figure(figsize=(8, 6))
+    for result in results:
+        fpr, tpr, _ = roc_curve(result["y_test"], result["y_scores"])
+        plt.plot(
+            fpr,
+            tpr,
+            label=f"{result['model_type']} (AUC={result['roc_auc']:.3f})",
+            linewidth=2,
+        )
+
+    plt.plot([0, 1], [0, 1], color="gray", linestyle="--", linewidth=1)
+    plt.title("ROC curve comparison")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.legend(loc="lower right")
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150)
+    plt.close()
 
 
 def train_model(data_path: Path = DATA_PATH) -> dict:
@@ -67,6 +92,7 @@ def train_model(data_path: Path = DATA_PATH) -> dict:
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
     X, y = build_feature_dataset(data_path)
+    positive_rate = float(pd.Series(y).mean())
 
     X_train, X_test, y_train, y_test = train_test_split(
         X,
@@ -76,7 +102,6 @@ def train_model(data_path: Path = DATA_PATH) -> dict:
         stratify=y,
     )
 
-    # Train LightGBM model
     lgbm_model = LGBMClassifier(
         n_estimators=150,
         learning_rate=0.05,
@@ -84,37 +109,65 @@ def train_model(data_path: Path = DATA_PATH) -> dict:
         random_state=42,
         verbose=-1,
     )
-    lgbm_params = {
-        "model_type": "LightGBM",
-        "n_estimators": 150,
-        "learning_rate": 0.05,
-        "class_weight": "balanced",
-    }
-
-    lgbm_pipeline, lgbm_metrics, lgbm_params = train_and_evaluate_model(
-        X_train, X_test, y_train, y_test, lgbm_model, "LightGBM", lgbm_params
+    lgbm_pipeline, lgbm_metrics, lgbm_scores = train_and_evaluate_model(
+        X_train,
+        X_test,
+        y_train,
+        y_test,
+        lgbm_model,
+        "LightGBM",
     )
+    lgbm_metrics["positive_rate"] = positive_rate
 
-    # Train RandomForest model
     rf_model = RandomForestClassifier(
         n_estimators=150,
         class_weight="balanced",
         random_state=42,
         n_jobs=-1,
     )
-    rf_params = {
-        "model_type": "RandomForest",
-        "n_estimators": 150,
-        "class_weight": "balanced",
-    }
+    rf_pipeline, rf_metrics, rf_scores = train_and_evaluate_model(
+        X_train,
+        X_test,
+        y_train,
+        y_test,
+        rf_model,
+        "RandomForest",
+    )
+    rf_metrics["positive_rate"] = positive_rate
 
-    rf_pipeline, rf_metrics, rf_params = train_and_evaluate_model(
-        X_train, X_test, y_train, y_test, rf_model, "RandomForest", rf_params
+    plot_roc_curves(
+        [
+            {
+                "model_type": "LightGBM",
+                "y_test": y_test,
+                "y_scores": lgbm_scores,
+                "roc_auc": lgbm_metrics["roc_auc"],
+            },
+            {
+                "model_type": "RandomForest",
+                "y_test": y_test,
+                "y_scores": rf_scores,
+                "roc_auc": rf_metrics["roc_auc"],
+            },
+        ],
+        REPORT_DIR / "roc_curves.png",
     )
 
-    # Save the best model (based on ROC-AUC)
-    best_model = lgbm_pipeline if lgbm_metrics["roc_auc"] >= rf_metrics["roc_auc"] else rf_pipeline
-    best_metrics = lgbm_metrics if lgbm_metrics["roc_auc"] >= rf_metrics["roc_auc"] else rf_metrics
+    best_model = (
+        lgbm_pipeline
+        if lgbm_metrics["roc_auc"] >= rf_metrics["roc_auc"]
+        else rf_pipeline
+    )
+    best_metrics = (
+        lgbm_metrics
+        if lgbm_metrics["roc_auc"] >= rf_metrics["roc_auc"]
+        else rf_metrics
+    )
+    best_metrics["best_model"] = best_metrics["model_type"]
+    best_metrics["model_comparison"] = {
+        "lgbm_roc_auc": lgbm_metrics["roc_auc"],
+        "random_forest_roc_auc": rf_metrics["roc_auc"],
+    }
 
     joblib.dump(best_model, MODEL_PATH)
     METRICS_PATH.write_text(json.dumps(best_metrics, indent=2))
@@ -128,7 +181,10 @@ def train_model(data_path: Path = DATA_PATH) -> dict:
         with mlflow.start_run(run_name="fraudguard-lightgbm-baseline") as run:
             mlflow.log_params(
                 {
-                    **lgbm_params,
+                    "model_type": "LightGBM",
+                    "n_estimators": 150,
+                    "learning_rate": 0.05,
+                    "class_weight": "balanced",
                     "threshold": lgbm_metrics["threshold"],
                 }
             )
@@ -142,14 +198,17 @@ def train_model(data_path: Path = DATA_PATH) -> dict:
                     "positive_rate": lgbm_metrics["positive_rate"],
                 }
             )
+            mlflow.log_artifact(str(METRICS_PATH), artifact_path="reports")
+            mlflow.log_artifact(str(REPORT_DIR / "roc_curves.png"), artifact_path="reports")
             mlflow.sklearn.log_model(lgbm_pipeline, artifact_path="model")
             lgbm_metrics["mlflow_run_id"] = run.info.run_id
 
-        # Log RandomForest
         with mlflow.start_run(run_name="fraudguard-randomforest-baseline") as run:
             mlflow.log_params(
                 {
-                    **rf_params,
+                    "model_type": "RandomForest",
+                    "n_estimators": 150,
+                    "class_weight": "balanced",
                     "threshold": rf_metrics["threshold"],
                 }
             )
@@ -163,18 +222,12 @@ def train_model(data_path: Path = DATA_PATH) -> dict:
                     "positive_rate": rf_metrics["positive_rate"],
                 }
             )
+            mlflow.log_artifact(str(REPORT_DIR / "roc_curves.png"), artifact_path="reports")
             mlflow.sklearn.log_model(rf_pipeline, artifact_path="model")
             rf_metrics["mlflow_run_id"] = run.info.run_id
 
         METRICS_PATH.write_text(json.dumps(best_metrics, indent=2))
         REPORT_METRICS_PATH.write_text(json.dumps(best_metrics, indent=2))
-
-    # Add comparison info to best_metrics for reference
-    best_metrics["model_comparison"] = {
-        "lgbm_roc_auc": lgbm_metrics["roc_auc"],
-        "random_forest_roc_auc": rf_metrics["roc_auc"],
-        "best_model": best_metrics["model_type"],
-    }
 
     return best_metrics
 

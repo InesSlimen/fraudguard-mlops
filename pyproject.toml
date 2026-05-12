@@ -8,6 +8,7 @@ dependencies = [
     "numpy>=1.26.0",
     "scikit-learn>=1.4.0",
     "lightgbm>=4.3.0",
+    "matplotlib>=3.8.0",
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.27.0",
     "pandera>=0.20.0",
