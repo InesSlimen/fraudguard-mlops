@@ -177,6 +177,7 @@ def train_model(data_path: Path = DATA_PATH) -> dict:
         mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
         mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
+        # Log LightGBM
         with mlflow.start_run(run_name="fraudguard-lightgbm-baseline") as run:
             mlflow.log_params(
                 {
@@ -233,6 +234,7 @@ def train_model(data_path: Path = DATA_PATH) -> dict:
 
 def main() -> None:
     metrics = train_model()
+    print("\n=== Training Results ===")
     print(json.dumps(metrics, indent=2))
 
 

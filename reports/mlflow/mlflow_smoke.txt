@@ -1,0 +1,7 @@
+{
+  "tracking_uri": "http://localhost:5001",
+  "experiment_name": "fraudguard-baseline",
+  "experiment_id": "1",
+  "latest_run_id": "43c375a5d9ec44bfba7f65b734023cc9",
+  "status": "passed"
+}
