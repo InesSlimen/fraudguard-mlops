@@ -1,0 +1,95 @@
+name: mlflow
+
+on:
+  pull_request:
+    paths:
+      - "products/fraudguard/training/**"
+      - "products/fraudguard/evaluation/**"
+      - "products/fraudguard/features/**"
+      - "scripts/mlflow_smoke.py"
+      - "docker-compose.local.yml"
+      - ".github/workflows/mlflow.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mlflow-smoke:
+    name: MLflow smoke test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          pip install -e .
+
+      - name: Start MLflow stack
+        run: |
+          docker compose -f docker-compose.local.yml up -d
+          sleep 20
+          docker compose -f docker-compose.local.yml ps
+
+      - name: Generate synthetic data
+        env:
+          PYTHONPATH: .
+        run: |
+          python scripts/create_synthetic_sample.py
+
+      - name: Validate data
+        env:
+          PYTHONPATH: .
+        run: |
+          python scripts/validate_data.py
+
+      - name: Build features
+        env:
+          PYTHONPATH: .
+        run: |
+          python products/fraudguard/features/build_features.py
+
+      - name: Train with MLflow
+        env:
+          PYTHONPATH: .
+          MLFLOW_TRACKING_URI: http://localhost:5000
+          MLFLOW_EXPERIMENT_NAME: fraudguard-baseline
+          MLFLOW_S3_ENDPOINT_URL: http://localhost:9000
+          AWS_ACCESS_KEY_ID: minio
+          AWS_SECRET_ACCESS_KEY: minio123
+        run: |
+          python products/fraudguard/training/train.py
+
+      - name: MLflow smoke check
+        env:
+          PYTHONPATH: .
+          MLFLOW_TRACKING_URI: http://localhost:5000
+          MLFLOW_EXPERIMENT_NAME: fraudguard-baseline
+        run: |
+          python scripts/mlflow_smoke.py
+
+      - name: Upload MLflow report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mlflow-report
+          path: reports/mlflow
+
+      - name: Dump Docker logs on failure
+        if: failure()
+        run: |
+          docker compose -f docker-compose.local.yml logs
+
+      - name: Stop MLflow stack
+        if: always()
+        run: |
+          docker compose -f docker-compose.local.yml down -v
