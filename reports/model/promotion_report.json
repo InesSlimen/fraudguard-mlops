@@ -1,0 +1,21 @@
+{
+  "model_name": "fraudguard-risk-model",
+  "candidate_version": "2",
+  "dry_run": false,
+  "approved": true,
+  "failures": [],
+  "thresholds": {
+    "min_roc_auc": 0.6,
+    "min_pr_auc": 0.03,
+    "min_recall": 0.5
+  },
+  "metrics": {
+    "roc_auc": 0.8187375239048411,
+    "pr_auc": 0.2888182517729255,
+    "precision": 0.11366711772665765,
+    "recall": 0.7019498607242339,
+    "f1": 0.1956521739130435,
+    "positive_rate": 0.03586
+  },
+  "status": "promoted"
+}
