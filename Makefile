@@ -87,3 +87,43 @@ train-tracking:
 	AWS_ACCESS_KEY_ID=$${AWS_ACCESS_KEY_ID:-minio} \
 	AWS_SECRET_ACCESS_KEY=$${AWS_SECRET_ACCESS_KEY:-minio123} \
 	python3.11 products/fraudguard/training/train.py
+
+.PHONY: select-best-run register-model promote-model-dry-run promote-model
+
+select-best-run:
+	. .venv/bin/activate && \
+	PYTHONPATH=. \
+	MLFLOW_TRACKING_URI=$${MLFLOW_TRACKING_URI:-http://localhost:5001} \
+	python3.11 products/fraudguard/training/select_best_run.py
+
+register-model:
+	. .venv/bin/activate && \
+	PYTHONPATH=. \
+	MLFLOW_TRACKING_URI=$${MLFLOW_TRACKING_URI:-http://localhost:5001} \
+	MLFLOW_S3_ENDPOINT_URL=$${MLFLOW_S3_ENDPOINT_URL:-http://localhost:9000} \
+	AWS_ACCESS_KEY_ID=$${AWS_ACCESS_KEY_ID:-minio} \
+	AWS_SECRET_ACCESS_KEY=$${AWS_SECRET_ACCESS_KEY:-minio123} \
+	MLFLOW_MODEL_NAME=$${MLFLOW_MODEL_NAME:-fraudguard-risk-model} \
+	python3.11 products/fraudguard/training/register.py
+
+promote-model-dry-run:
+	. .venv/bin/activate && \
+	PYTHONPATH=. \
+	MLFLOW_TRACKING_URI=$${MLFLOW_TRACKING_URI:-http://localhost:5001} \
+	MLFLOW_S3_ENDPOINT_URL=$${MLFLOW_S3_ENDPOINT_URL:-http://localhost:9000} \
+	AWS_ACCESS_KEY_ID=$${AWS_ACCESS_KEY_ID:-minio} \
+	AWS_SECRET_ACCESS_KEY=$${AWS_SECRET_ACCESS_KEY:-minio123} \
+	MLFLOW_MODEL_NAME=$${MLFLOW_MODEL_NAME:-fraudguard-risk-model} \
+	PROMOTION_DRY_RUN=true \
+	python3.11 products/fraudguard/training/promote.py
+
+promote-model:
+	. .venv/bin/activate && \
+	PYTHONPATH=. \
+	MLFLOW_TRACKING_URI=$${MLFLOW_TRACKING_URI:-http://localhost:5001} \
+	MLFLOW_S3_ENDPOINT_URL=$${MLFLOW_S3_ENDPOINT_URL:-http://localhost:9000} \
+	AWS_ACCESS_KEY_ID=$${AWS_ACCESS_KEY_ID:-minio} \
+	AWS_SECRET_ACCESS_KEY=$${AWS_SECRET_ACCESS_KEY:-minio123} \
+	MLFLOW_MODEL_NAME=$${MLFLOW_MODEL_NAME:-fraudguard-risk-model} \
+	PROMOTION_DRY_RUN=false \
+	python3.11 products/fraudguard/training/promote.py
