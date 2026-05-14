@@ -1,0 +1,121 @@
+name: registry-dryrun
+
+on:
+  pull_request:
+    paths:
+      - "products/fraudguard/training/**"
+      - "products/fraudguard/evaluation/**"
+      - "products/fraudguard/features/**"
+      - "scripts/**"
+      - "docker-compose.local.yml"
+      - ".github/workflows/registry-dryrun.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  registry-dry-run:
+    name: Registry candidate and dry-run promotion
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          pip install -e .
+
+      - name: Start MLflow stack
+        run: |
+          docker compose -f docker-compose.local.yml up -d
+          sleep 25
+          docker compose -f docker-compose.local.yml ps
+
+      - name: Generate synthetic data
+        env:
+          PYTHONPATH: .
+        run: python scripts/create_synthetic_sample.py
+
+      - name: Validate data
+        env:
+          PYTHONPATH: .
+        run: python scripts/validate_data.py
+
+      - name: Build features
+        env:
+          PYTHONPATH: .
+        run: python products/fraudguard/features/build_features.py
+
+      - name: Train with MLflow
+        env:
+          PYTHONPATH: .
+          MLFLOW_TRACKING_URI: http://localhost:5001
+          MLFLOW_EXPERIMENT_NAME: fraudguard-baseline
+          MLFLOW_S3_ENDPOINT_URL: http://localhost:9000
+          AWS_ACCESS_KEY_ID: minio
+          AWS_SECRET_ACCESS_KEY: minio123
+        run: python products/fraudguard/training/train.py
+
+      - name: Register candidate
+        env:
+          PYTHONPATH: .
+          MLFLOW_TRACKING_URI: http://localhost:5001
+          MLFLOW_MODEL_NAME: fraudguard-risk-model
+          MLFLOW_S3_ENDPOINT_URL: http://localhost:9000
+          AWS_ACCESS_KEY_ID: minio
+          AWS_SECRET_ACCESS_KEY: minio123
+        run: python products/fraudguard/training/register.py
+
+      - name: Dry-run promotion
+        env:
+          PYTHONPATH: .
+          MLFLOW_TRACKING_URI: http://localhost:5001
+          MLFLOW_MODEL_NAME: fraudguard-risk-model
+          MLFLOW_S3_ENDPOINT_URL: http://localhost:9000
+          AWS_ACCESS_KEY_ID: minio
+          AWS_SECRET_ACCESS_KEY: minio123
+          PROMOTION_DRY_RUN: "true"
+        run: python products/fraudguard/training/promote.py
+
+      - name: Upload registry reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: registry-reports
+          path: reports/model
+
+      - name: Registry summary
+        if: always()
+        run: |
+          echo "## FraudGuard Registry Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f reports/model/registration_report.json ]; then
+            echo "### Registration" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat reports/model/registration_report.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f reports/model/promotion_report.json ]; then
+            echo "### Promotion" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat reports/model/promotion_report.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Dump Docker logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.local.yml logs
+
+      - name: Stop MLflow stack
+        if: always()
+        run: docker compose -f docker-compose.local.yml down -v
