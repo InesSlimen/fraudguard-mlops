@@ -1,3 +1,4 @@
+
 name: registry-dryrun
 
 on:
@@ -8,7 +9,7 @@ on:
       - "products/fraudguard/features/**"
       - "scripts/**"
       - "docker-compose.local.yml"
-      - ".github/workflows/registry-dry-run.yml"
+      - ".github/workflows/registry-dryrun.yml"
   workflow_dispatch:
 
 permissions:
@@ -58,7 +59,7 @@ jobs:
       - name: Train with MLflow
         env:
           PYTHONPATH: .
-          MLFLOW_TRACKING_URI: http://localhost:5001
+          MLFLOW_TRACKING_URI: http://localhost:5000
           MLFLOW_EXPERIMENT_NAME: fraudguard-baseline
           MLFLOW_S3_ENDPOINT_URL: http://localhost:9000
           AWS_ACCESS_KEY_ID: minio
@@ -68,15 +69,21 @@ jobs:
       - name: Register candidate
         env:
           PYTHONPATH: .
-          MLFLOW_TRACKING_URI: http://localhost:5001
+          MLFLOW_TRACKING_URI: http://localhost:5000
           MLFLOW_MODEL_NAME: fraudguard-risk-model
+          MLFLOW_S3_ENDPOINT_URL: $${MLFLOW_S3_ENDPOINT_URL:-http://localhost:9000}
+          AWS_ACCESS_KEY_ID: $${AWS_ACCESS_KEY_ID:-minio}
+          AWS_SECRET_ACCESS_KEY: $${AWS_SECRET_ACCESS_KEY:-minio123}
         run: python products/fraudguard/training/register.py
 
       - name: Dry-run promotion
         env:
           PYTHONPATH: .
-          MLFLOW_TRACKING_URI: http://localhost:5001
+          MLFLOW_TRACKING_URI: http://localhost:5000
           MLFLOW_MODEL_NAME: fraudguard-risk-model
+          MLFLOW_S3_ENDPOINT_URL: $${MLFLOW_S3_ENDPOINT_URL:-http://localhost:9000}
+          AWS_ACCESS_KEY_ID: $${AWS_ACCESS_KEY_ID:-minio}
+          AWS_SECRET_ACCESS_KEY: $${AWS_SECRET_ACCESS_KEY:-minio123}
           PROMOTION_DRY_RUN: "true"
         run: python products/fraudguard/training/promote.py
 
