@@ -44,38 +44,38 @@ jobs:
         env:
           PYTHONPATH: .
         run: |
-          python scripts/create_synthetic_sample.py
+          python3.11 scripts/create_synthetic_sample.py
 
       - name: Validate data
         env:
           PYTHONPATH: .
         run: |
-          python scripts/validate_data.py
+          python3.11 scripts/validate_data.py
 
       - name: Build features
         env:
           PYTHONPATH: .
         run: |
-          python products/fraudguard/features/build_features.py
+          python3.11 products/fraudguard/features/build_features.py
 
       - name: Train with MLflow
         env:
           PYTHONPATH: .
-          MLFLOW_TRACKING_URI: http://localhost:5000
+          MLFLOW_TRACKING_URI: http://localhost:5001
           MLFLOW_EXPERIMENT_NAME: fraudguard-baseline
           MLFLOW_S3_ENDPOINT_URL: http://localhost:9000
           AWS_ACCESS_KEY_ID: minio
           AWS_SECRET_ACCESS_KEY: minio123
         run: |
-          python products/fraudguard/training/train.py
+          python3.11 products/fraudguard/training/train.py
 
       - name: MLflow smoke check
         env:
           PYTHONPATH: .
-          MLFLOW_TRACKING_URI: http://localhost:5000
+          MLFLOW_TRACKING_URI: http://localhost:5001
           MLFLOW_EXPERIMENT_NAME: fraudguard-baseline
         run: |
-          python scripts/mlflow_smoke.py
+          python3.11 scripts/mlflow_smoke.py
 
       - name: Upload MLflow report
         uses: actions/upload-artifact@v4
